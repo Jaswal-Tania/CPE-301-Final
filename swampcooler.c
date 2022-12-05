@@ -85,7 +85,7 @@ Stepper motor(steps_per_rev, IN1, IN3, IN2, IN4);
 
 void idle_state(int water_level, float temperature1);
 
-void error_state(int water_level, float temperature1;
+void error_state(int water_level, float temperature1);
 
 void running_state(int water_level, float temperature1);
 
