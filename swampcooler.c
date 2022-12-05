@@ -11,6 +11,10 @@
 #include <SimpleDHT.h>
 #include <TimeLib.h>
 
+#define IN1 7
+#define IN2 6
+#define IN3 5
+#define IN4 4
 
 //initialize lcd screen 
 LiquidCrystal lcd(7,8,9,10,11,12);
@@ -67,13 +71,15 @@ volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
 volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 
 
-dht11 DHT11;
+
 
 float temperature = 0;
 float humidity = 0;
 
 unsigned int state_count = 0;
 
+const int steps_per_rev = 2048; 
+Stepper motor(steps_per_rev, IN1, IN3, IN2, IN4);
 
 // Functions
 
@@ -86,13 +92,18 @@ void running_state(int water_level, float temperature1);
 float lcd_display (float temperature1, float humidity);
 
 void setup() {
-
+    motor.setSpeed(10);
     Serial.begin(9600);
 
 }
 
 void loop() {
 
+	//step motor
+	motor.step(steps_per_rev);
+    delay(1000); 
+    motor.step(-steps_per_rev);
+    delay(1000);
     // LCD Display
 
     lcd.clear();
