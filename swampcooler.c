@@ -4,12 +4,15 @@
 //included libraries
 
 #include <Stepper.h>
-#include <DS1307RTC.h>
+#include <dht11.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
 #include <SimpleDHT.h>
 #include <TimeLib.h>
+
+#define w_threshold 130 // water threshold
+#define t_threshold 20 // temperature threshold
 
 #define IN1 7
 #define IN2 6
@@ -61,10 +64,10 @@ volatile unsigned char *myTIFR1  = (unsigned char *) 0x36;
 volatile unsigned char *myTIMSK1 = (unsigned char *) 0x6F;
 
 // ADC Registers 
-volatile unsigned char* myADCSRA = (unsigned char*) 0x7A;
-volatile unsigned char* myADCSRB = (unsigned char*) 0x7B;
-volatile unsigned char* myADMUX  = (unsigned char*) 0x7C;
-volatile unsigned int* myADCDATA = (unsigned int*)  0x78;
+// volatile unsigned char* myADCSRA = (unsigned char*) 0x7A;
+// volatile unsigned char* myADCSRB = (unsigned char*) 0x7B;
+// volatile unsigned char* myADMUX  = (unsigned char*) 0x7C;
+// volatile unsigned int* myADCDATA = (unsigned int*)  0x78;
 
 // Pin change Interrupt Registers
 volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
@@ -89,6 +92,8 @@ void error_state(int water_level, float temperature1);
 
 void running_state(int water_level, float temperature1);
 
+void disabled_mode();
+
 float lcd_display (float temperature1, float humidity);
 
 void setup() {
@@ -100,7 +105,7 @@ void setup() {
 void loop() {
 
 	//step motor
-	motor.step(steps_per_rev);
+	  motor.step(steps_per_rev);
     delay(1000); 
     motor.step(-steps_per_rev);
     delay(1000);
@@ -116,28 +121,57 @@ void loop() {
     lcd.print("%");
 
 
-    // Serial Monitor Display
-
-//     Serial.print("Water Level: ");
-//     Serial.print(water_level);
-//     Serial.print("      Temperature: ");
-//     Serial.print(temperature);
-//     Serial.print("C      Humidity: ");
-//     Serial.print(humidity);
-//     Serial.print("%");
-
-    // Call Functions
-
 }
 
 
 
 // Define Functions
 
-void idle_state(int water_level, float temperature1){}
+void idle_state(int water_level, float temperature1){
 
-void error_state(int water_level, float temperature1){}
+  if(water_level > w_threshold && temperature < t_threshold){
+        
+    // LEDs
+    *myPORT_B &=  0x00;               // Turn all LEDs off
+    *myPORT_B |=  0x80;               // Turn on GREEN LED
 
-void running_state(int water_level, float temperature1){}
+    // Turn Motor off
+    *myPORT_B |= 0x08;        
+    *myPORT_B &= 0xFD;        
+  }
+}
 
-float lcd_display (float temperature1, float humidity){}
+
+void error_state(int water_level, float temperature1){
+  if(water_level <= w_threshold){
+    
+     // LEDs
+     *myPORT_B &=  0x00;               // Turn all LEDs off
+     *myPORT_B |=  0x20;               // Turn on RED LED
+
+    // Turn Motor off
+    *myPORT_B |= 0x08;        
+    *myPORT_B &= 0xFD;       
+  }
+}
+
+void running_state(int water_level, float temperature1){
+if(water_level > w_threshold && temperature > t_threshold){
+    
+    // LEDs
+    *myPORT_B &=  0x00;               // Turn all LEDs off
+    *myPORT_B |=  0x40;               // Turn on BLUE LED
+
+    // Turn Motor ON
+    *myPORT_B |= 0x08;        
+    *myPORT_B |= 0x02;        
+  }
+}
+
+void disabled_mode(){
+
+}
+
+float lcd_display (float temperature1, float humidity){
+
+}
