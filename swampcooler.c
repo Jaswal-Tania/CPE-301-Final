@@ -3,12 +3,13 @@
 
 //included libraries
 
-#include <Arduino.h>
+#include <Stepper.h>
+#include <DS1307RTC.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
-#include <dht11.h>
-#include <RTClib.h>
+#include <SimpleDHT.h>
+#include <TimeLib.h>
 
 
 //initialize lcd screen 
