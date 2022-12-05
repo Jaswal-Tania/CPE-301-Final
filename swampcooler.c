@@ -92,6 +92,29 @@ void setup() {
 
 void loop() {
 
+    // LCD Display
+
+    lcd.clear();
+    lcd.print("Temp: ");        
+    lcd.print(temperature);     // Displays Temperature Value 
+    lcd.print("C");             // prints "C" for Celsius
+
+    lcd.print("Humidity: ");
+    lcd.print(humidity);        // Displays Humidity Value 
+    lcd.print("%");
+
+
+    // Serial Monitor Display
+
+//     Serial.print("Water Level: ");
+//     Serial.print(water_level);
+//     Serial.print("      Temperature: ");
+//     Serial.print(temperature);
+//     Serial.print("C      Humidity: ");
+//     Serial.print(humidity);
+//     Serial.print("%");
+
+    // Call Functions
 
 }
 
