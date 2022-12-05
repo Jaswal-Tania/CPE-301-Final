@@ -4,7 +4,6 @@
 //included libraries
 
 #include <Stepper.h>
-#include <dht11.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
@@ -26,9 +25,9 @@ LiquidCrystal lcd(7,8,9,10,11,12);
 // Port Registers
 
 // LEDs (Output)
-volatile unsigned char* myPORTB = (unsigned char*) 0x25; 
-volatile unsigned char* myDDRB  = (unsigned char*) 0x24;
-volatile unsigned char* myPINB  = (unsigned char*) 0x23;
+volatile unsigned char* myPORT_B = (unsigned char*) 0x25; 
+volatile unsigned char* myDDR_B  = (unsigned char*) 0x24;
+volatile unsigned char* myPIN_B  = (unsigned char*) 0x23;
 
 // Temperature and Humdity (Input)
 volatile unsigned char* myPORT_C = (unsigned char*) 0x28;
@@ -36,9 +35,9 @@ volatile unsigned char* myDDR_C  = (unsigned char*) 0x27;
 volatile unsigned char* myPIN_C  = (unsigned char*) 0x26;
 
 // Fan Motor
-volatile unsigned char* myPORTE = (unsigned char*) 0x2E; 
-volatile unsigned char* myDDRE  = (unsigned char*) 0x2D;
-volatile unsigned char* myPINE  = (unsigned char*) 0x2C;
+volatile unsigned char* myPORT_E = (unsigned char*) 0x2E; 
+volatile unsigned char* myDDR_E  = (unsigned char*) 0x2D;
+volatile unsigned char* myPIN_E  = (unsigned char*) 0x2C;
 
 // Water Level (Input)
 volatile unsigned char* myPORT_F = (unsigned char*) 0x31;
@@ -81,8 +80,11 @@ float humidity = 0;
 
 unsigned int state_count = 0;
 
-const int steps_per_rev = 2048; 
+//vent variables
+const int steps_per_rev = 32; 
 Stepper motor(steps_per_rev, IN1, IN3, IN2, IN4);
+int Pval = 0;
+int potVal = 0;
 
 // Functions
 
@@ -96,7 +98,10 @@ void disabled_mode();
 
 float lcd_display (float temperature1, float humidity);
 
+void Vent_control();
+
 void setup() {
+  
     motor.setSpeed(10);
     Serial.begin(9600);
 
@@ -104,11 +109,9 @@ void setup() {
 
 void loop() {
 
-	//step motor
-	  motor.step(steps_per_rev);
-    delay(1000); 
-    motor.step(-steps_per_rev);
-    delay(1000);
+  //step motor
+  Vent_control();
+
     // LCD Display
 
     lcd.clear();
@@ -174,4 +177,15 @@ void disabled_mode(){
 
 float lcd_display (float temperature1, float humidity){
 
+}
+
+
+void Vent_control(){
+  potVal = map(analogRead(A0),0,1024,0,500);
+  
+  if(potVal>Pval)
+    motor.step(5);
+  if(potVal<Pval)
+    motor.step(-5);
+ Pval = potVal;
 }
