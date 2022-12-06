@@ -13,6 +13,8 @@
 #define w_threshold 130 // water threshold
 #define t_threshold 20 // temperature threshold
 
+#define DHT11PIN 36
+
 #define IN1 7
 #define IN2 6
 #define IN3 5
@@ -73,7 +75,7 @@ volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
 volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 
 
-
+dht11 DHT11;
 
 float temperature = 0;
 float humidity = 0;
@@ -102,8 +104,29 @@ void Vent_control();
 
 void setup() {
   
-    motor.setSpeed(10);
-    Serial.begin(9600);
+  motor.setSpeed(10);
+  Serial.begin(9600);
+  
+  
+  *myDDR_B |= 0xFF;        
+  
+  *myDDR_K &= 0x00;         
+  
+  *myPORT_K |= 0xFF;     
+
+  *myDDR_F &= 0xFF;    
+  
+  *myPORT_F |= 0x80;      
+
+  
+  *myDDR_E &= 0x10;         
+  
+  *myPORT_E |= 0x10;        
+
+  // LCD size
+  lcd.begin(16,2);
+  
+  lcd.setCursor(0,0);
 
 }
 
@@ -111,9 +134,35 @@ void loop() {
 
   //step motor
   Vent_control();
+  
+  if (!(*myPIN_K & 0x40)){. // Checks whether the button is pushed; checks bit 6 (0100 0000)
+    
+    // Checks again if the button is pressed
+    if (!(*myPIN_K & 0x40))
+    {
+      state_count++;
+      state_counter %= 2;
+      while (!(*myPIN_H & 0x40));
+    }
+  }
 
+  if(state_count == 0)
+  {
+    disabled_mode();
+  }
+ 
+  else
+  {
+    // Water Level Reading
+    
+    
+    // Temperature & Humidity Sensor Reading
+    int check = DHT11.read(DHT11PIN);
+    temperature = (float)DHT11.temperature;
+    humidity = (float)DHT11.humidity;
+    
+  
     // LCD Display
-
     lcd.clear();
     lcd.print("Temp: ");        
     lcd.print(temperature);     // Displays Temperature Value 
@@ -122,7 +171,7 @@ void loop() {
     lcd.print("Humidity: ");
     lcd.print(humidity);        // Displays Humidity Value 
     lcd.print("%");
-
+  }
 
 }
 
