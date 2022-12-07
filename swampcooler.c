@@ -1,3 +1,4 @@
+
 // Project members: Tania Jaswal and Jasmine Wells
 // File name: swampcooler.o
 
@@ -7,21 +8,19 @@
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
-#include <SimpleDHT.h>
-#include <TimeLib.h>
+#include <DHT.h>
+#include <RTClib.h>
 
 #define w_threshold 130 // water threshold
 #define t_threshold 20 // temperature threshold
 
-#define DHT11PIN 36
+#define DHT11PIN 36 // DHT Pin
+#define SERVO_PIN A1
 
 #define IN1 7
 #define IN2 6
 #define IN3 5
 #define IN4 4
-
-//initialize lcd screen 
-LiquidCrystal lcd(7,8,9,10,11,12);
 
 
 // Port Registers
@@ -74,8 +73,13 @@ volatile unsigned char *myTIMSK1 = (unsigned char *) 0x6F;
 volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
 volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 
-
+DateTime now;
 dht11 DHT11;
+Servo servo;
+RTC_DS1307 rtc;
+
+//initialize lcd screen 
+LiquidCrystal lcd(7,8,9,10,11,12);
 
 float temperature = 0;
 float humidity = 0;
@@ -100,14 +104,23 @@ void disabled_mode();
 
 float lcd_display (float temperature1, float humidity);
 
+void printTime();
+
 void Vent_control();
 
 void setup() {
   
   motor.setSpeed(10);
   Serial.begin(9600);
-  
-  
+  DHT11.begin();
+  servo.attach(SERVO_PIN);
+  lcd.begin(16,2);
+
+  rtc.begin();
+  if (!rtc.isrunning()){
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+
   *myDDR_B |= 0xFF;        
   
   *myDDR_K &= 0x00;         
@@ -124,7 +137,7 @@ void setup() {
   *myPORT_E |= 0x10;        
 
   // LCD size
-  lcd.begin(16,2);
+  
   
   lcd.setCursor(0,0);
 
@@ -135,13 +148,13 @@ void loop() {
   //step motor
   Vent_control();
   
-  if (!(*myPIN_K & 0x40)){. // Checks whether the button is pushed; checks bit 6 (0100 0000)
+  if (!(*myPIN_K & 0x40)){ // Checks whether the button is pushed; checks bit 6 (0100 0000)
     
     // Checks again if the button is pressed
     if (!(*myPIN_K & 0x40))
     {
       state_count++;
-      state_counter %= 2;
+      state_count %= 2;
       while (!(*myPIN_H & 0x40));
     }
   }
@@ -163,14 +176,13 @@ void loop() {
     
   
     // LCD Display
-    lcd.clear();
-    lcd.print("Temp: ");        
-    lcd.print(temperature);     // Displays Temperature Value 
-    lcd.print("C");             // prints "C" for Celsius
+    lcd_display(temperature, humidity);
 
-    lcd.print("Humidity: ");
-    lcd.print(humidity);        // Displays Humidity Value 
-    lcd.print("%");
+
+    // Call Functions
+    idle_state(water_level, temperature);
+    error_state(water_level, temperature);
+    running_state(water_level, temperature);
   }
 
 }
@@ -182,7 +194,8 @@ void loop() {
 void idle_state(int water_level, float temperature1){
 
   if(water_level > w_threshold && temperature < t_threshold){
-        
+
+    lcd.print("**Idle**")    
     // LEDs
     *myPORT_B &=  0x00;               // Turn all LEDs off
     *myPORT_B |=  0x80;               // Turn on GREEN LED
@@ -197,6 +210,8 @@ void idle_state(int water_level, float temperature1){
 void error_state(int water_level, float temperature1){
   if(water_level <= w_threshold){
     
+    lcd.print("**Error**")
+
      // LEDs
      *myPORT_B &=  0x00;               // Turn all LEDs off
      *myPORT_B |=  0x20;               // Turn on RED LED
@@ -210,6 +225,8 @@ void error_state(int water_level, float temperature1){
 void running_state(int water_level, float temperature1){
 if(water_level > w_threshold && temperature > t_threshold){
     
+    lcd.print("**Running**")
+
     // LEDs
     *myPORT_B &=  0x00;               // Turn all LEDs off
     *myPORT_B |=  0x40;               // Turn on BLUE LED
@@ -222,12 +239,70 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
+  lcd.print("**Disabled**")
+  // Clear the LCD
+  lcd.clear();
+
+  // LEDs
+  *myPORT_B &=  0x00;               // Turn all LEDs off
+  *myPORT_B |=  0x10;               // Turn on YELLOW LED
+
+  // Turn Motor Off
+  *myPORT_B |= 0x08;        
+  *myPORT_B &= 0xFD; 
 }
 
 float lcd_display (float temperature1, float humidity){
 
+  lcd.clear();
+    lcd.print("Temp: ");        
+    lcd.print(temperature1);     // Displays Temperature Value 
+    lcd.print("C");             // prints "C" for Celsius
+
+    lcd.print("Humidity: ");
+    lcd.print(humidity);        // Displays Humidity Value 
+    lcd.print("%");
+
 }
 
+void printTime()
+{
+  DateTime now = rtc.now();
+  if (state_count == 1)
+  {
+    Serial.print("\n");
+    Serial.print("Enabled: (");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(") ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+  }
+  else if (state_count == 0)
+  {
+    Serial.print("\n");
+    Serial.print("Disabled: (");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(") ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
+  }
+}
 
 void Vent_control(){
   potVal = map(analogRead(A0),0,1024,0,500);
