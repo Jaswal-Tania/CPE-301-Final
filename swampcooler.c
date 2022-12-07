@@ -239,10 +239,9 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
-  lcd.print("**Disabled**")
   // Clear the LCD
   lcd.clear();
-
+  lcd.print("**Disabled**")
   // LEDs
   *myPORT_B &=  0x00;               // Turn all LEDs off
   *myPORT_B |=  0x10;               // Turn on YELLOW LED
