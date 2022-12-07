@@ -1,5 +1,5 @@
 
-Project members: Tania Jaswal and Jasmine Wells
+//Project members: Tania Jaswal and Jasmine Wells
 // File name: swampcooler.o
 
 //included libraries
@@ -15,7 +15,7 @@ Project members: Tania Jaswal and Jasmine Wells
 #define w_threshold 130 // water threshold
 #define t_threshold 20 // temperature threshold
 
-#define DHT11PIN 36 // DHT Pin
+#define DHTPIN 36 // DHT Pin
 #define SERVO_PIN A1
 #define DHTTYPE DHT11
 
@@ -78,7 +78,7 @@ volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 DateTime now;
 DHT DHT(DHTPIN, DHTTYPE);
 Servo servo;
-RTC_DS1307 rtc;`
+RTC_DS1307 rtc;
 
 //initialize lcd screen 
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
@@ -86,6 +86,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 float temperature = 0;
 float humidity = 0;
+float water_level;
 
 unsigned int state_count = 0;
 
@@ -173,9 +174,9 @@ void loop() {
     
     
     // Temperature & Humidity Sensor Reading
-    int check = DHT.read(DHT11PIN);
-    temperature = (float)DHT.temperature;
-    humidity = (float)DHT.humidity;
+    int check = DHT.read(DHTPIN);
+    temperature = (float)DHT.readTemperature();
+    humidity = (float)DHT.readHumidity();
     
   
     // LCD Display
@@ -198,7 +199,7 @@ void idle_state(int water_level, float temperature1){
 
   if(water_level > w_threshold && temperature < t_threshold){
 
-    lcd.print("**Idle**")    
+    lcd.print("**Idle**");   
     // LEDs
     *myPORT_B &=  0x00;               // Turn all LEDs off
     *myPORT_B |=  0x80;               // Turn on GREEN LED
@@ -213,7 +214,7 @@ void idle_state(int water_level, float temperature1){
 void error_state(int water_level, float temperature1){
   if(water_level <= w_threshold){
     
-    lcd.print("**Error**")
+    lcd.print("**Error**");
 
      // LEDs
      *myPORT_B &=  0x00;               // Turn all LEDs off
@@ -228,7 +229,7 @@ void error_state(int water_level, float temperature1){
 void running_state(int water_level, float temperature1){
 if(water_level > w_threshold && temperature > t_threshold){
     
-    lcd.print("**Running**")
+    lcd.print("**Running**");
 
     // LEDs
     *myPORT_B &=  0x00;               // Turn all LEDs off
@@ -242,7 +243,7 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
-  lcd.print("**Disabled**")
+  lcd.print("**Disabled**");
   // Clear the LCD
   lcd.clear();
 
