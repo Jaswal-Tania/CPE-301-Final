@@ -1,9 +1,10 @@
 
-// Project members: Tania Jaswal and Jasmine Wells
+Project members: Tania Jaswal and Jasmine Wells
 // File name: swampcooler.o
 
 //included libraries
 
+#include <Adafruit_Sensor.h>
 #include <Stepper.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
@@ -16,6 +17,7 @@
 
 #define DHT11PIN 36 // DHT Pin
 #define SERVO_PIN A1
+#define DHTTYPE DHT11
 
 #define IN1 7
 #define IN2 6
@@ -74,9 +76,9 @@ volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
 volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 
 DateTime now;
-dht11 DHT11;
+DHT DHT(DHTPIN, DHTTYPE);
 Servo servo;
-RTC_DS1307 rtc;
+RTC_DS1307 rtc;`
 
 //initialize lcd screen 
 LiquidCrystal lcd(7,8,9,10,11,12);
@@ -112,7 +114,7 @@ void setup() {
   
   motor.setSpeed(10);
   Serial.begin(9600);
-  DHT11.begin();
+  DHT.begin();
   servo.attach(SERVO_PIN);
   lcd.begin(16,2);
 
@@ -239,9 +241,10 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
+  lcd.print("**Disabled**")
   // Clear the LCD
   lcd.clear();
-  lcd.print("**Disabled**")
+
   // LEDs
   *myPORT_B &=  0x00;               // Turn all LEDs off
   *myPORT_B |=  0x10;               // Turn on YELLOW LED
