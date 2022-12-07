@@ -149,6 +149,7 @@ void setup() {
 
 void loop() {
 
+  lcd.print("Hello World~~~");
   //step motor
   Vent_control();
   
