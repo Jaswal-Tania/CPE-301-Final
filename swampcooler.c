@@ -172,9 +172,9 @@ void loop() {
     
     
     // Temperature & Humidity Sensor Reading
-    int check = DHT11.read(DHT11PIN);
-    temperature = (float)DHT11.temperature;
-    humidity = (float)DHT11.humidity;
+    int check = DHT.read(DHT11PIN);
+    temperature = (float)DHT.temperature;
+    humidity = (float)DHT.humidity;
     
   
     // LCD Display
