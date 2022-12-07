@@ -243,9 +243,10 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
-  lcd.print("**Disabled**");
   // Clear the LCD
   lcd.clear();
+  
+  lcd.print("**Disabled**");
 
   // LEDs
   *myPORT_B &=  0x00;               // Turn all LEDs off
@@ -274,37 +275,37 @@ void printTime()
   DateTime now = rtc.now();
   if (state_count == 1)
   {
-    Serial.print("\n");
-    Serial.print("Enabled: (");
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
+    lcd.print("\n");
+    lcd.print("Enabled: (");
+    lcd.print(now.year(), DEC);
+    lcd.print('/');
+    lcd.print(now.month(), DEC);
+    lcd.print('/');
+    lcd.print(now.day(), DEC);
+    lcd.print(") ");
+    lcd.print(now.hour(), DEC);
+    lcd.print(':');
+    lcd.print(now.minute(), DEC);
+    lcd.print(':');
+    lcd.print(now.second(), DEC);
+    lcd.println();
   }
   else if (state_count == 0)
   {
-    Serial.print("\n");
-    Serial.print("Disabled: (");
-    Serial.print(now.year(), DEC);
-    Serial.print('/');
-    Serial.print(now.month(), DEC);
-    Serial.print('/');
-    Serial.print(now.day(), DEC);
-    Serial.print(") ");
-    Serial.print(now.hour(), DEC);
-    Serial.print(':');
-    Serial.print(now.minute(), DEC);
-    Serial.print(':');
-    Serial.print(now.second(), DEC);
-    Serial.println();
+    lcd.print("\n");
+    lcd.print("Disabled: (");
+    lcd.print(now.year(), DEC);
+    lcd.print('/');
+    lcd.print(now.month(), DEC);
+    lcd.print('/');
+    lcd.print(now.day(), DEC);
+    lcd.print(") ");
+    lcd.print(now.hour(), DEC);
+    lcd.print(':');
+    lcd.print(now.minute(), DEC);
+    lcd.print(':');
+    lcd.print(now.second(), DEC);
+    lcd.println();
   }
 }
 
