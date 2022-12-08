@@ -4,7 +4,6 @@
 
 //included libraries
 
-#include <Adafruit_Sensor.h>
 #include <Stepper.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
@@ -19,10 +18,10 @@
 #define SERVO_PIN A1
 #define DHTTYPE DHT11
 
-#define IN1 7
-#define IN2 6
-#define IN3 5
-#define IN4 4
+#define IN1 42
+#define IN2 44
+#define IN3 46
+#define IN4 48
 
 
 // Port Registers
@@ -99,22 +98,16 @@ int potVal = 0;
 // Functions
 
 void idle_state(int water_level, float temperature1);
-
 void error_state(int water_level, float temperature1);
-
 void running_state(int water_level, float temperature1);
-
 void disabled_mode();
-
 float lcd_display (float temperature1, float humidity);
-
 void printTime();
-
 void Vent_control();
 
 void setup() {
   
-  motor.setSpeed(10);
+  motor.setSpeed(200);
   Serial.begin(9600);
   DHT.begin();
   servo.attach(SERVO_PIN);
@@ -141,15 +134,11 @@ void setup() {
   *myPORT_E |= 0x10;        
 
   // LCD size
-  
-  
-  lcd.setCursor(0,0);
-
+lcd.print("123456789");
 }
 
 void loop() {
-
-  lcd.print("Hello World~~~");
+ 
   //step motor
   Vent_control();
   
@@ -244,10 +233,9 @@ if(water_level > w_threshold && temperature > t_threshold){
 
 void disabled_mode(){
 
+  lcd.print("**Disabled**");
   // Clear the LCD
   lcd.clear();
-  
-  lcd.print("**Disabled**");
 
   // LEDs
   *myPORT_B &=  0x00;               // Turn all LEDs off
