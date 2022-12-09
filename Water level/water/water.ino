@@ -28,8 +28,8 @@ void loop() {
   // put your main code here, to run repeatedly:
   int level = readSensor();
 
-  lcd.print("Water level: ");
-  lcd.println(level);
+  Serial.print("Water level: ");
+  Serial.println(level);
 
 }
 

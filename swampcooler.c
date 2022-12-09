@@ -18,6 +18,11 @@
 #define SERVO_PIN A1
 #define DHTTYPE DHT11
 
+#define ON true
+#define OFF false
+#define Output false
+#define Input true
+
 #define IN1 42
 #define IN2 44
 #define IN3 46
@@ -26,32 +31,32 @@
 
 // Port Registers
 
-// LEDs (Output)
+// Port B
 volatile unsigned char* myPORT_B = (unsigned char*) 0x25; 
 volatile unsigned char* myDDR_B  = (unsigned char*) 0x24;
 volatile unsigned char* myPIN_B  = (unsigned char*) 0x23;
 
-// Temperature and Humdity (Input)
+// Port C
 volatile unsigned char* myPORT_C = (unsigned char*) 0x28;
 volatile unsigned char* myDDR_C  = (unsigned char*) 0x27;
 volatile unsigned char* myPIN_C  = (unsigned char*) 0x26;
 
-// Fan Motor
+// Port E
 volatile unsigned char* myPORT_E = (unsigned char*) 0x2E; 
 volatile unsigned char* myDDR_E  = (unsigned char*) 0x2D;
 volatile unsigned char* myPIN_E  = (unsigned char*) 0x2C;
 
-// Water Level (Input)
+// Port F
 volatile unsigned char* myPORT_F = (unsigned char*) 0x31;
 volatile unsigned char* myDDR_F  = (unsigned char*) 0x30;
 volatile unsigned char* myPIN_F  = (unsigned char*) 0x2F;
 
-// Push Button(Input)
+// Port H
 volatile unsigned char* myPORT_H = (unsigned char*) 0x102;
 volatile unsigned char* myDDR_H  = (unsigned char*) 0x101;
 volatile unsigned char* myPIN_H  = (unsigned char*) 0x100;
 
-// Button/Transistor
+// Port K
 volatile unsigned char* myPORT_K = (unsigned char*) 0x108;
 volatile unsigned char* myDDR_K  = (unsigned char*) 0x107;
 volatile unsigned char* myPIN_K  = (unsigned char*) 0x106;
@@ -85,7 +90,7 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 float temperature = 0;
 float humidity = 0;
-float water_level;
+float water_level = 0;
 
 unsigned int state_count = 0;
 
@@ -104,8 +109,14 @@ void disabled_mode();
 float lcd_display (float temperature1, float humidity);
 void printTime();
 void Vent_control();
+void Write_Pin_State(volatile unsigned char* Port,unsigned char Pin,unsigned State);
+void Set_Pin(volatile unsigned char* Port, unsigned char Pin,bool INOUT);
+int Read_Water_Level();
+
 
 void setup() {
+  Set_Pin(myDDR_B,3,Output);
+  Write_Pin_State(myDDR_B,3,OFF);
   
   motor.setSpeed(200);
   Serial.begin(9600);
@@ -138,7 +149,8 @@ lcd.print("123456789");
 }
 
 void loop() {
- 
+ //water
+ Read_Water_Level();
   //step motor
   Vent_control();
   
@@ -299,11 +311,43 @@ void printTime()
 }
 
 void Vent_control(){
-  potVal = map(analogRead(A0),0,1024,0,500);
+  potVal = map(analogRead(A0),0,1024,0,500);  //map the potimeter to analog 1
   
-  if(potVal>Pval)
-    motor.step(5);
-  if(potVal<Pval)
-    motor.step(-5);
- Pval = potVal;
+  if(potVal>Pval)                         //if the read value is bigger than previous value
+    motor.step(5);                        //move motor 5 steps
+  if(potVal<Pval)                         //if the read vlaue is less than the previous value
+    motor.step(-5);                       //move motor back 5 steps
+    
+  Pval = potVal;                          //set the previous value to the read value
+}
+
+int Read_Water_Level(){
+  int val = 0;
+  
+  Write_Pin_State(myPORT_B,3,ON);   //Turn the water sensor ON
+  val = analogRead(A15);            //Read the analog value from sensor
+  Write_Pin_State(myPORT_B,3,OFF);  //Turn the water sensor OFF
+  Serial.print("Water level: ");
+  Serial.println(val);
+  return val;                       //Send current reading
+}
+
+void Set_Pin(volatile unsigned char* Port, unsigned char Pin,bool INOUT){
+  if (INOUT == false){             //If output
+    *Port |= 0x01 << Pin;          //Shift over to pin and set to 1
+  }
+  else{                           //If input
+    *Port &= ~(0x01 << Pin);       //Shift over to pin and set to 0
+  }
+}
+
+void Write_Pin_State(volatile unsigned char* Port,unsigned char Pin,unsigned State){
+  if(State == 0)                  //If state off
+  {
+    *Port &= ~(0x01 << Pin);      //Shift over to pin and set to 0
+  }
+  else                            //If state on
+  {
+    *Port |= 0x01 << Pin;         //Shoft over to pin and set to 1
+  }
 }
