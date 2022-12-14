@@ -105,7 +105,7 @@ void clock_setup();
 #define IN4 48
 
 #define w_threshold 130 // water threshold
-#define t_threshold 20 // temperature threshold
+#define t_threshold 22 // temperature threshold
 
 #define SERVO_PIN A1
 #define DHTPIN 6 // DHT Pin
@@ -319,6 +319,9 @@ void error_state(){
         }
     }
 
+    //water level check
+    Check_Water();    
+
 }
 
 
@@ -418,13 +421,13 @@ void Vent_control(){
     lcd.print("Celsius");
     delay(2000);
 
-    if((CheckTemp > t_threshold)&& StateCount == 2){
+    if(CheckTemp <= t_threshold){
       Serial.print("WE SHOULD GO TO RUNNING MODE HERE");
-      StateCount == 1;
+      running_state();
       printTime();       
     }
-    else if((CheckTemp <= t_threshold)&& StateCount == 1 ){
-      StateCount == 2;
+    else if((CheckTemp > t_threshold)){
+      idle_state();
       printTime(); 
     }
 }
@@ -445,13 +448,16 @@ int Read_Water_Level(){
 }
 void Check_Water(){  
    // Water Level Reading
-    if( (Read_Water_Level() < w_threshold)  && ( (StateCount == 1) || (StateCount == 2) ) ){
+    if( (Read_Water_Level() < w_threshold)  ){
      error_state();
+    }
+    else{
+      idle_state();
     }
 }
 
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~4
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //FAN STUFF
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
