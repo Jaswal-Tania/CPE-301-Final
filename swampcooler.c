@@ -3,31 +3,12 @@
 // File name: swampcooler.o
 
 //included libraries
-
 #include <Stepper.h>
 #include <Wire.h>
 #include <LiquidCrystal.h>
 #include <Servo.h>
 #include <DHT.h>
 #include <RTClib.h>
-
-#define w_threshold 130 // water threshold
-#define t_threshold 20 // temperature threshold
-
-#define DHTPIN 36 // DHT Pin
-#define SERVO_PIN A1
-#define DHTTYPE DHT11
-
-#define ON true
-#define OFF false
-#define Output false
-#define Input true
-
-#define IN1 42
-#define IN2 44
-#define IN3 46
-#define IN4 48
-
 
 // Port Registers
 
@@ -41,6 +22,11 @@ volatile unsigned char* myPORT_C = (unsigned char*) 0x28;
 volatile unsigned char* myDDR_C  = (unsigned char*) 0x27;
 volatile unsigned char* myPIN_C  = (unsigned char*) 0x26;
 
+// Port D
+volatile unsigned char* myPORT_D = (unsigned char*) 0x2B;
+volatile unsigned char* myDDR_D  = (unsigned char*) 0x2A;
+volatile unsigned char* myPIN_D  = (unsigned char*) 0x29;
+
 // Port E
 volatile unsigned char* myPORT_E = (unsigned char*) 0x2E; 
 volatile unsigned char* myDDR_E  = (unsigned char*) 0x2D;
@@ -51,6 +37,11 @@ volatile unsigned char* myPORT_F = (unsigned char*) 0x31;
 volatile unsigned char* myDDR_F  = (unsigned char*) 0x30;
 volatile unsigned char* myPIN_F  = (unsigned char*) 0x2F;
 
+//Port G
+volatile unsigned char* myPORT_G = (unsigned char*) 0x34;
+volatile unsigned char* myDDR_G  = (unsigned char*) 0x33;
+volatile unsigned char* myPIN_G  = (unsigned char*) 0x32;
+
 // Port H
 volatile unsigned char* myPORT_H = (unsigned char*) 0x102;
 volatile unsigned char* myDDR_H  = (unsigned char*) 0x101;
@@ -60,6 +51,11 @@ volatile unsigned char* myPIN_H  = (unsigned char*) 0x100;
 volatile unsigned char* myPORT_K = (unsigned char*) 0x108;
 volatile unsigned char* myDDR_K  = (unsigned char*) 0x107;
 volatile unsigned char* myPIN_K  = (unsigned char*) 0x106;
+
+//Port L
+volatile unsigned char* myPORT_L = (unsigned char*) 0x10B;
+volatile unsigned char* myDDR_L  = (unsigned char*) 0x10A;
+volatile unsigned char* myPIN_L  = (unsigned char*) 0x109;
 
 // Timer Registers
 volatile unsigned int  *myTCNT1  = (unsigned  int *) 0x84;
@@ -79,15 +75,52 @@ volatile unsigned int* my_ADC_DATA = (unsigned int*) 0x78;
 volatile unsigned char* myPCMSK1 = (unsigned char *) 0x6C;
 volatile unsigned char* myPCICR  = (unsigned char *) 0x68;
 
-DateTime now;
-DHT DHT(DHTPIN, DHTTYPE);
-Servo servo;
-RTC_DS1307 rtc;
+// Functions
+void idle_state();
+void error_state();
+void running_state();
+void disabled_mode();
+void printTime();
+void Vent_control();
+void Write_Pin(volatile unsigned char* Port,unsigned char Pin,unsigned State);
+void Pin_Mode(volatile unsigned char* Port, unsigned char Pin,bool INOUT);
+int Read_Water_Level();
+unsigned int adc_read(unsigned char adc_channel_num);
+void adc_init();
+void Check_Water();
+void Humit_Temp_Read_Print();
+void Turn_Off_All_Lights();
+void Turn_On(char color);
+void Fan_ON_OFF(unsigned int state);
+void clock_setup();
+
+#define ON true
+#define OFF false
+#define Output false
+#define Input true
+
+#define IN1 42
+#define IN2 44
+#define IN3 46
+#define IN4 48
+
+#define w_threshold 130 // water threshold
+#define t_threshold 20 // temperature threshold
+
+#define SERVO_PIN A1
+#define DHTPIN 6 // DHT Pin
+#define DHTTYPE DHT11
+
+
+//DHT for humidity and lcd
+DHT DHT(DHTPIN,DHTTYPE);
 
 //initialize lcd screen 
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
+
+//humity and temp and water
 float temperature = 0;
 float humidity = 0;
 float water_level = 0;
@@ -101,228 +134,247 @@ int Pval = 0;
 int potVal = 0;
 int val = 0;
 
-// Functions
+//variables for on off button
+int count = 0;
+int StateCount = 1;
 
-void idle_state(int water_level, float temperature1);
-void error_state(int water_level, float temperature1);
-void running_state(int water_level, float temperature1);
-void disabled_mode();
-float lcd_display (float temperature1, float humidity);
-void printTime();
-void Vent_control();
-void Write_Pin_State(volatile unsigned char* Port,unsigned char Pin,unsigned State);
-void Set_Pin(volatile unsigned char* Port, unsigned char Pin,bool INOUT);
-int Read_Water_Level();
-unsigned int adc_read(unsigned char adc_channel_num);
-void adc_init();
+//variables for clock
+RTC_DS1307 rtc;
+char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//SETUP
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void setup() {
   
-  Set_Pin(myDDR_B,3,Output);
-  Write_Pin_State(myDDR_B,3,ON);
+  //begin the serial
   Serial.begin(9600);
-  Set_Pin(myDDR_H,5,Output);
+  
+  //PinModes
+  Pin_Mode(myDDR_B,1,Output);
+  Pin_Mode(myDDR_B,3,Output);
+  Pin_Mode(myDDR_H,5,Output);
+  Pin_Mode(myDDR_C,1,Output);
+  Pin_Mode(myDDR_G,1,Output);
+  Pin_Mode(myDDR_D,7,Output);
+  Pin_Mode(myDDR_B,1,Input);
+  Pin_Mode(myDDR_H,4,Output);
+
+  //initialize pins
+  Write_Pin(myDDR_B,3,ON);
+
+  //adc initialization
   adc_init();
- 
+
+ //Vent initalization
   motor.setSpeed(200);
   
-  DHT.begin();
-  servo.attach(SERVO_PIN);
-  lcd.begin(16,2);
+  //start the DHT for lcd and humity
+  DHT.begin(); 
+  lcd.begin(16, 2);   
 
-  rtc.begin();
-  if (!rtc.isrunning()){
-    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-  }
-
-  *myDDR_B |= 0xFF;        
-  
-  *myDDR_K &= 0x00;         
-  
-  *myPORT_K |= 0xFF;     
-
-  *myDDR_F &= 0xFF;    
-  
-  *myPORT_F |= 0x80;      
-
-  
-  *myDDR_E &= 0x10;         
-  
-  *myPORT_E |= 0x10;        
-
-  // LCD size
-lcd.print("123456789");
+  //clock
+  clock_setup();
 }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//LOOP
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void loop() {
- //water
-  if(Read_Water_Level()>580){
+  int button = *myPIN_B;
+  button = button & 0x02;
+  if(button != 0){                    //if high/button is pressed
 
-   Write_Pin_State(myPORT_H,5,ON);
-  }
-  else{
-    Write_Pin_State(myPORT_H,5,OFF);
-    Serial.print("Water too low");
-  }
-  //step motor
-  Vent_control();
-  
-  if (!(*myPIN_K & 0x40)){ // Checks whether the button is pushed; checks bit 6 (0100 0000)
-    
-    // Checks again if the button is pressed
-    if (!(*myPIN_K & 0x40))
-    {
-      state_count++;
-      state_count %= 2;
-      while (!(*myPIN_H & 0x40));
+      if(StateCount == 1){            //if in running state when button pressed
+        disabled_mode();              //go to disable mose
+        StateCount = 0;               //switch StateCount to disable mode
+        printTime();                  //print time it was disabled
+      }
+      else if (StateCount == 0){      //if in Disable mode when button pressed
+        count = 0;   
+        StateCount = 2;                  //restart lcd counter
+        idle_state();                   //NEED TO CHANGE TO IDLE
+                                      //NEED TO CHANGE TO IDLE
+        printTime();        
+      }
+      else if(StateCount == 2){        //if in idle mode when button pressed
+        count = 0;     
+        disabled_mode();               //disable mode on
+        StateCount = 0;             
+        printTime();    
+      }
+      else{                           //if error is state when pressed
+      count = 0; 
+        disabled_mode();
+        StateCount = 0;
+        printTime(); 
+      }
+      delay(100);
+  } 
+      else{                         //if button hasnt been pressed
+        if(StateCount == 1){        //supposed to be in running state
+          running_state();          //turn on running state
+        }
+        else if(StateCount == 0){   //supposed to be in disable mode
+          disabled_mode();          //turn on disabled mode
+        }
+        else if(StateCount == 2){   //supposed to be in idle
+          idle_state();             //go to idle state
+        }
+        else{                       //suppoe to be in error
+          error_state();            //go in error
+        }
+  }   
+
+
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//HELPER FUNCTIONS
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//MODES
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void idle_state(){
+
+    // LEDs
+    Turn_Off_All_Lights();
+    Turn_On('G');              // Turn on Green LED 
+
+    if(count>5||count == 0){
+    //check temp and humity print to lcd
+        Humit_Temp_Read_Print(); 
+        count++;
+        if(count == 5){
+            count = 1;      
+        }
     }
-  }
+    
+    //water level check
+    Check_Water();
 
-  if(state_count == 0)
-  {
-    disabled_mode();
-  }
- 
-  else
-  {
-    // Water Level Reading
-    
-    
-    // Temperature & Humidity Sensor Reading
-    int check = DHT.read(DHTPIN);
-    temperature = (float)DHT.readTemperature();
-    humidity = (float)DHT.readHumidity();
-    
+    //fan running
+    Fan_ON_OFF(OFF);
+    //step motor
+    Vent_control(); 
   
-    // LCD Display
-    lcd_display(temperature, humidity);
-
-
-    // Call Functions
-    idle_state(water_level, temperature);
-    error_state(water_level, temperature);
-    running_state(water_level, temperature);
-  }
-
 }
 
 
-
-// Define Functions
-
-void idle_state(int water_level, float temperature1){
-
-  if(water_level > w_threshold && temperature < t_threshold){
-
-    lcd.print("**Idle**");   
-    // LEDs
-    *myPORT_B &=  0x00;               // Turn all LEDs off
-    *myPORT_B |=  0x80;               // Turn on GREEN LED
-
-    // Turn Motor off
-    *myPORT_B |= 0x08;        
-    *myPORT_B &= 0xFD;        
-  }
-}
-
-
-void error_state(int water_level, float temperature1){
-  if(water_level <= w_threshold){
-    
-    lcd.print("**Error**");
-
-     // LEDs
-     *myPORT_B &=  0x00;               // Turn all LEDs off
-     *myPORT_B |=  0x20;               // Turn on RED LED
-
-    // Turn Motor off
-    *myPORT_B |= 0x08;        
-    *myPORT_B &= 0xFD;       
-  }
-}
-
-void running_state(int water_level, float temperature1){
-if(water_level > w_threshold && temperature > t_threshold){
-    
-    lcd.print("**Running**");
+void error_state(){
+    //error message
+    lcd.print("**WATER level is too Low**");
 
     // LEDs
-    *myPORT_B &=  0x00;               // Turn all LEDs off
-    *myPORT_B |=  0x40;               // Turn on BLUE LED
+    Turn_Off_All_Lights();
+    Turn_On('R');              // Turn on Red LED 
 
-    // Turn Motor ON
-    *myPORT_B |= 0x08;        
-    *myPORT_B |= 0x02;        
-  }
+    //fan
+    Fan_ON_OFF(OFF); 
+          
+      if(count>5||count == 0){
+    //check temp and humity print to lcd
+        Humit_Temp_Read_Print(); 
+        count++;
+        if(count == 5){
+            count = 1;      
+        }
+    }
+
+}
+
+void running_state(){
+
+    // LEDs
+    Turn_Off_All_Lights();
+    Turn_On('B');              // Turn on BLUE LED 
+
+    if(count>5||count == 0){
+    //check temp and humity print to lcd
+        Humit_Temp_Read_Print(); 
+        count++;
+        if(count == 5){
+            count = 1;      
+        }
+    }
+    Write_Pin(myDDR_B,3,ON);
+    //water level check
+    Check_Water();
+
+    //fan running
+    Fan_ON_OFF(ON);
+    //step motor
+    Vent_control();  
+    
 }
 
 void disabled_mode(){
-
-  lcd.print("**Disabled**");
-  // Clear the LCD
   lcd.clear();
-
+  Write_Pin(myDDR_B,3,OFF);
   // LEDs
-  *myPORT_B &=  0x00;               // Turn all LEDs off
-  *myPORT_B |=  0x10;               // Turn on YELLOW LED
+  Turn_Off_All_Lights();    // Turn all LEDs off
+  Turn_On('Y');             // Turn on YELLOW LED
 
   // Turn Motor Off
-  *myPORT_B |= 0x08;        
-  *myPORT_B &= 0xFD; 
+  Fan_ON_OFF(OFF); 
 }
 
-float lcd_display (float temperature1, float humidity){
 
-  lcd.clear();
-    lcd.print("Temp: ");        
-    lcd.print(temperature1);     // Displays Temperature Value 
-    lcd.print("C");             // prints "C" for Celsius
-
-    lcd.print("Humidity: ");
-    lcd.print(humidity);        // Displays Humidity Value 
-    lcd.print("%");
-
-}
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//TIME
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void printTime()
 {
   DateTime now = rtc.now();
   if (state_count == 1)
   {
-    lcd.print("\n");
-    lcd.print("Enabled: (");
-    lcd.print(now.year(), DEC);
-    lcd.print('/');
-    lcd.print(now.month(), DEC);
-    lcd.print('/');
-    lcd.print(now.day(), DEC);
-    lcd.print(") ");
-    lcd.print(now.hour(), DEC);
-    lcd.print(':');
-    lcd.print(now.minute(), DEC);
-    lcd.print(':');
-    lcd.print(now.second(), DEC);
-    lcd.println();
+    Serial.print("\n");
+    Serial.print("Enabled: (");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(") ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
   }
   else if (state_count == 0)
   {
-    lcd.print("\n");
-    lcd.print("Disabled: (");
-    lcd.print(now.year(), DEC);
-    lcd.print('/');
-    lcd.print(now.month(), DEC);
-    lcd.print('/');
-    lcd.print(now.day(), DEC);
-    lcd.print(") ");
-    lcd.print(now.hour(), DEC);
-    lcd.print(':');
-    lcd.print(now.minute(), DEC);
-    lcd.print(':');
-    lcd.print(now.second(), DEC);
-    lcd.println();
+    Serial.print("\n");
+    Serial.print("Disabled: (");
+    Serial.print(now.year(), DEC);
+    Serial.print('/');
+    Serial.print(now.month(), DEC);
+    Serial.print('/');
+    Serial.print(now.day(), DEC);
+    Serial.print(") ");
+    Serial.print(now.hour(), DEC);
+    Serial.print(':');
+    Serial.print(now.minute(), DEC);
+    Serial.print(':');
+    Serial.print(now.second(), DEC);
+    Serial.println();
   }
+  
 }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//VENT CONTROLS
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 void Vent_control(){
   potVal = map(analogRead(A0),0,1024,0,500);  //map the potimeter to analog 1
@@ -331,21 +383,142 @@ void Vent_control(){
     motor.step(5);                        //move motor 5 steps
   if(potVal<Pval)                         //if the read vlaue is less than the previous value
     motor.step(-5);                       //move motor back 5 steps
-    
+
   Pval = potVal;                          //set the previous value to the read value
 }
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//HUMIDITY AND TEMPERATURE READING
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ void Humit_Temp_Read_Print(){
+
+  
+    int check = DHT.read(DHTPIN);
+    int CheckTemp =DHT.readTemperature();
+    Serial.println(CheckTemp);
+    lcd.clear();
+    lcd.setCursor(0,0);// set the cursor on the first row and column
+    lcd.print("Humidity=");
+    lcd.print((float)DHT.readHumidity());//print the humidity
+    lcd.print("%");
+    lcd.setCursor(0,1);//set the cursor on the second row and first column
+    lcd.print("Temp=");
+    lcd.print((float)CheckTemp);//print the temperature
+    lcd.print("Celsius");
+    delay(2000);
+
+    if((CheckTemp > t_threshold)&& StateCount == 2){
+      StateCount == 1;
+      printTime();       
+    }
+    else if((CheckTemp <= t_threshold)&& StateCount == 1 ){
+      StateCount == 2;
+      printTime(); 
+    }
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//WATER LEVEL STUFF
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 int Read_Water_Level(){
   
-  Write_Pin_State(myPORT_B,3,ON);   //Turn the water sensor ON
+  Write_Pin(myPORT_B,3,ON);   //Turn the water sensor ON
   val = adc_read(15);               //Read the analog value from sensor
-  Write_Pin_State(myPORT_B,3,OFF);  //Turn the water sensor OFF
+  Write_Pin(myPORT_B,3,OFF);  //Turn the water sensor OFF
   Serial.print("Water level: ");
   Serial.println(val);
   return val;                       //Send current reading
 }
+void Check_Water(){
+   // Water Level Reading
+    if( (Read_Water_Level() < w_threshold)  && ( (StateCount == 1) || (StateCount == 2) ) ){
+     error_state();
+    }
+    else{
+      idle_state();
+      StateCount == 2;
+      printTime(); 
+    }
+}
 
-void Set_Pin(volatile unsigned char* Port, unsigned char Pin,bool INOUT){
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~4
+//FAN STUFF
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void Fan_ON_OFF(unsigned int state){
+  if(state==1){
+    Write_Pin(myPORT_C,1,ON);
+    Write_Pin(myPORT_G,1,ON);
+  }
+  else{
+    Write_Pin(myPORT_C,1,OFF);
+    Write_Pin(myPORT_G,1,OFF);
+  }
+ 
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~4
+//Clock
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void clock_setup(){
+  #ifndef ESP8266
+  while (!Serial); // wait for serial port to connect. Needed for native USB
+  #endif
+
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    while (1) delay(10);
+  }
+
+  if (! rtc.isrunning()) {
+    Serial.println("RTC is NOT running, let's set the time!");
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  }
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~4
+//LIGHTS
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void Turn_Off_All_Lights(){
+  Write_Pin(*myPORT_B,4,OFF); //Turn off Blue
+  Write_Pin(*myPORT_H,6,OFF); //Turn off Green
+  Write_Pin(*myPORT_H,5,OFF); //Turn off Yellow 
+  Write_Pin(*myPORT_H,4,OFF); //Turn off red
+}
+void Turn_On(char color){
+  switch (color){
+    case 'B':
+        Write_Pin(myPORT_B,4,ON);  //Turn on Blue
+        break;
+    case 'G':
+        Write_Pin(myPORT_H,6,ON);  //Turn on Green
+        break;
+    case 'Y':
+    Serial.print("YELLOW");
+        Write_Pin(myPORT_H,5,ON); //Turn on Yellow 
+        break;
+    case 'R':
+        Write_Pin(myPORT_H,4,ON); //Turn on red
+        break;
+  }
+}
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//PINMODE FUNCTIONS
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+void Pin_Mode(volatile unsigned char* Port, unsigned char Pin,bool INOUT){
   if (INOUT == false){             //If output
     *Port |= 0x01 << Pin;          //Shift over to pin and set to 1
   }
@@ -354,7 +527,7 @@ void Set_Pin(volatile unsigned char* Port, unsigned char Pin,bool INOUT){
   }
 }
 
-void Write_Pin_State(volatile unsigned char* Port,unsigned char Pin,unsigned State){
+void Write_Pin(volatile unsigned char* Port,unsigned char Pin,unsigned State){
   if(State == 0)                  //If state off
   {
     *Port &= ~(0x01 << Pin);      //Shift over to pin and set to 0
@@ -364,6 +537,12 @@ void Write_Pin_State(volatile unsigned char* Port,unsigned char Pin,unsigned Sta
     *Port |= 0x01 << Pin;         //Shoft over to pin and set to 1
   }
 }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//ADC STUFF
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 void adc_init()
 {
   // setup the A register
