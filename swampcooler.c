@@ -188,46 +188,45 @@ void loop() {
   int button = *myPIN_B;
   button = button & 0x02;
   if(button != 0){                    //if high/button is pressed
-
-      if(StateCount == 1){            //if in running state when button pressed
-        disabled_mode();              //go to disable mose
-        StateCount = 0;               //switch StateCount to disable mode
-        printTime();                  //print time it was disabled
-      }
-      else if (StateCount == 0){      //if in Disable mode when button pressed
-        count = 0;   
-        StateCount = 2;                  //restart lcd counter
+      switch(StateCount){
+        case 0:                       //if in disable mode
+        //count = 0;
         idle_state();                   //NEED TO CHANGE TO IDLE
-                                      //NEED TO CHANGE TO IDLE
-        printTime();        
-      }
-      else if(StateCount == 2){        //if in idle mode when button pressed
-        count = 0;     
-        disabled_mode();               //disable mode on
-        StateCount = 0;             
-        printTime();    
-      }
-      else{                           //if error is state when pressed
-      count = 0; 
-        disabled_mode();
-        StateCount = 0;
+        printTime();                  //print time it was disabled
+        break;
+        case 1:
+        disabled_mode();              //go to disable mode
+        printTime();                  //print time it was disabled
+        break;
+        case 2:
+        //count = 0;     
+        disabled_mode();               //disable mode on            
         printTime(); 
+        break;
+        case 3: 
+        //count = 0;
+        disabled_mode(); 
+        printTime(); 
+        break; 
+        delay(100);    
       }
-      delay(100);
+      
   } 
-      else{                         //if button hasnt been pressed
-        if(StateCount == 1){        //supposed to be in running state
-          running_state();          //turn on running state
-        }
-        else if(StateCount == 0){   //supposed to be in disable mode
-          disabled_mode();          //turn on disabled mode
-        }
-        else if(StateCount == 2){   //supposed to be in idle
-          idle_state();             //go to idle state
-        }
-        else{                       //suppoe to be in error
-          error_state();            //go in error
-        }
+  else{                           //if button hasnt been pressed
+    switch(StateCount){
+      case 0:                     //supposed to be in disable mode
+        disabled_mode();          //turn on disabled mode
+        break;
+      case 1:                     //supposed to be in running state
+        running_state();          //turn on running state
+        break;
+      case 2:                     //supposed to be in idle
+        idle_state();             //go to idle state
+      break;
+      case 3:                     //suppoe to be in error
+        error_state();            //go in error
+      break;      
+    }
   }   
 
 
@@ -241,8 +240,37 @@ void loop() {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //MODES
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void running_state(){
+    //make sure state is correct
+    StateCount = 1;
+
+    // LEDs
+    Turn_Off_All_Lights();
+    Turn_On('B');              // Turn on BLUE LED 
+
+    if(count>5||count == 0){
+    //check temp and humity print to lcd
+        Humit_Temp_Read_Print(); 
+        count++;
+        if(count == 5){
+            count = 1;      
+        }
+    }
+
+    //water level check
+    Check_Water();
+
+    //fan running
+    Fan_ON_OFF(ON);
+    //step motor
+    Vent_control();  
+    
+}
+
 
 void idle_state(){
+  //state check
+  StateCount = 2;
 
     // LEDs
     Turn_Off_All_Lights();
@@ -269,6 +297,9 @@ void idle_state(){
 
 
 void error_state(){
+    //check state
+    StateCount == 3;
+
     //error message
     lcd.print("**WATER level is too Low**");
 
@@ -290,34 +321,12 @@ void error_state(){
 
 }
 
-void running_state(){
 
-    // LEDs
-    Turn_Off_All_Lights();
-    Turn_On('B');              // Turn on BLUE LED 
-
-    if(count>5||count == 0){
-    //check temp and humity print to lcd
-        Humit_Temp_Read_Print(); 
-        count++;
-        if(count == 5){
-            count = 1;      
-        }
-    }
-    Write_Pin(myDDR_B,3,ON);
-    //water level check
-    Check_Water();
-
-    //fan running
-    Fan_ON_OFF(ON);
-    //step motor
-    Vent_control();  
-    
-}
 
 void disabled_mode(){
-  lcd.clear();
-  Write_Pin(myDDR_B,3,OFF);
+  //state check
+  StateCount = 0;
+
   // LEDs
   Turn_Off_All_Lights();    // Turn all LEDs off
   Turn_On('Y');             // Turn on YELLOW LED
@@ -410,6 +419,7 @@ void Vent_control(){
     delay(2000);
 
     if((CheckTemp > t_threshold)&& StateCount == 2){
+      Serial.print("WE SHOULD GO TO RUNNING MODE HERE");
       StateCount == 1;
       printTime();       
     }
@@ -433,15 +443,10 @@ int Read_Water_Level(){
   Serial.println(val);
   return val;                       //Send current reading
 }
-void Check_Water(){
+void Check_Water(){  
    // Water Level Reading
     if( (Read_Water_Level() < w_threshold)  && ( (StateCount == 1) || (StateCount == 2) ) ){
      error_state();
-    }
-    else{
-      idle_state();
-      StateCount == 2;
-      printTime(); 
     }
 }
 
