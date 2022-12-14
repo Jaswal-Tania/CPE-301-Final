@@ -105,7 +105,7 @@ void clock_setup();
 #define IN4 48
 
 #define w_threshold 130 // water threshold
-#define t_threshold 22 // temperature threshold
+#define t_threshold 23 // temperature threshold
 
 #define SERVO_PIN A1
 #define DHTPIN 6 // DHT Pin
@@ -169,7 +169,7 @@ void setup() {
   adc_init();
 
  //Vent initalization
-  motor.setSpeed(200);
+  motor.setSpeed(2000);
   
   //start the DHT for lcd and humity
   DHT.begin(); 
@@ -243,27 +243,32 @@ void loop() {
 void running_state(){
     //make sure state is correct
     StateCount = 1;
-
+ 
     // LEDs
     Turn_Off_All_Lights();
     Turn_On('B');              // Turn on BLUE LED 
 
+    //fan running
+    Fan_ON_OFF(ON);
+   
+    //step motor
+    Vent_control(); 
+
     if(count>5||count == 0){
-    //check temp and humity print to lcd
-        Humit_Temp_Read_Print(); 
+          //check temp and humity print to lcd
+          Humit_Temp_Read_Print();
+
         count++;
         if(count == 5){
             count = 1;      
         }
     }
 
-    //water level check
-    Check_Water();
+          //water level check
+          Check_Water();
 
-    //fan running
-    Fan_ON_OFF(ON);
-    //step motor
-    Vent_control();  
+
+ 
     
 }
 
@@ -276,6 +281,9 @@ void idle_state(){
     Turn_Off_All_Lights();
     Turn_On('G');              // Turn on Green LED 
 
+  //fan running
+    Fan_ON_OFF(OFF);
+
     if(count>5||count == 0){
     //check temp and humity print to lcd
         Humit_Temp_Read_Print(); 
@@ -288,8 +296,7 @@ void idle_state(){
     //water level check
     Check_Water();
 
-    //fan running
-    Fan_ON_OFF(OFF);
+  
     //step motor
     Vent_control(); 
   
