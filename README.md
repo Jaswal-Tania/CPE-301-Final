@@ -2,7 +2,6 @@
 
 Project Members- Tania Jaswal and Jasmine Wells
 
-Project Members- Tania Jaswal and Jasmine Wells
 
 Overview of the design-
 The goal of this project is to build an evaporation cooling system (swamp cooler). The swamp cooler will monitor the water levels in a reservoir and print an alert when the level is too low. It will display the current air temp and humidity on an LCD screen. It will start and stop a fan motor as needed. It will allow a user to use a control to adjust the angle of an output vent from the system. It can also enable or disable the system using an on/off button. It will record the time and date every time the motor is turned on or off. 
@@ -25,6 +24,6 @@ Mega 2560 Arduino
 USB Power Supply Cable
 
 
-[Project Documentation](Swamp Cooler.pdf)
+**For detailed project documentation - Swamp Cooler.pdf**
 
 
