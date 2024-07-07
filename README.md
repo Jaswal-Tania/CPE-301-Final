@@ -25,8 +25,6 @@ Mega 2560 Arduino
 USB Power Supply Cable
 
 
-
-
-
+[Project Documentation](Swamp Cooler.pdf)
 
 
