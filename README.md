@@ -27,13 +27,6 @@ USB Power Supply Cable
 
 
 
-Pictures-
-
-
-
-
-
-
 
 
 
